@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <script
+      src="https://res.mobbex.com/js/sdk/mobbex@1.1.0.js"
+      integrity="sha384-7CIQ1hldcQc/91ZpdRclg9KVlvtXBldQmZJRD1plEIrieHNcYvlQa2s2Bj+dlLzQ"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+
+  <body>
+    <div>
+      <!-- Card Number -->
+
+      <label>Número de Tarjeta</label>
+
+      <input type="text" id="card_number" />
+
+      <br />
+
+      <!-- Name -->
+
+      <label>Nombre como Figura en la Tarjeta</label>
+
+      <input type="text" id="cardholder_name" />
+
+      <br />
+
+      <!-- Identification -->
+
+      <label>Número de Documento</label>
+
+      <input type="text" id="cardholder_identification" />
+
+      <br />
+
+      <!-- Expiration -->
+
+      <label>Vencimiento</label>
+
+      <input type="text" placeholder="MM" id="expiration_month" />
+
+      <input type="text" placeholder="YY" id="expiration_year" />
+
+      <br />
+
+      <!-- Security Code -->
+
+      <label>Código de Seguridad</label>
+
+      <input type="text" placeholder="***" id="security_code" />
+
+      <br />
+
+      <!-- Installments -->
+
+      <label>Cuotas</label>
+
+      <select id="installments">
+        <option>Elegir Cuota</option>
+        <option>1</option>
+      </select>
+
+      <br />
+
+      <!-- Submit button -->
+
+      <button id="submit_btn">Pagar</button>
+    </div>
+
+    <script>
+      // Setear el public-key
+
+      window.MobbexJS.setPublicKey("6REGSly205PjQrSLWnRvjsuedN9m0ONbnxC_");
+
+      // Inicializamos con el intent token
+
+      window.MobbexJS.card.init("INTENT TOKEN");
+
+      const select = document.querySelector("#installments");
+
+      const card_input = document.querySelector("#card_number");
+
+      // Agregamos la lógica para detectar el medio de pago cada vez que el número cambia
+
+      card_input.oninput = async (e) => {
+        let value = e.target.value;
+
+        if (value.length >= 6) {
+          // Detectar medio de pago
+
+          let card = await window.MobbexJS.card.detect(value.substring(0, 6), {
+            installments,
+          });
+
+          if (!card.result) return;
+
+          let data = card.data;
+
+          // Limpiar las opciones de cuotas para que no se repitan
+
+          let i,
+            L = select.options.length - 1;
+
+          for (i = L; i >= 0; i--) {
+            select.remove(i);
+          }
+
+          // Agregar las opciones de cuotas
+
+          for (let installment of data.installments) {
+            let opt = document.createElement("option");
+
+            opt.value = installment.reference;
+
+            opt.innerHTML = installment.name;
+
+            select.appendChild(opt);
+          }
+        }
+      };
+
+      const submit_btn = document.querySelector("#submit_btn");
+
+      submit_btn.onclick = async (e) => {
+        e.stopPropagation();
+
+        e.preventDefault();
+
+        // Obtener datos de la tarjeta utilizando el id de cada input
+
+        const card_number = document.querySelector("#card_number").value;
+
+        const cardholder_name =
+          document.querySelector("#cardholder_name").value;
+
+        const cardholder_identification = document.querySelector(
+          "#cardholder_identification"
+        ).value;
+
+        const expiration_month =
+          document.querySelector("#expiration_month").value;
+
+        const expiration_year =
+          document.querySelector("#expiration_year").value;
+
+        // Tokenizar la tarjeta
+
+        const token = await window.MobbexJS.card.createToken({
+          card: {
+            number: card_number,
+
+            name: cardholder_name,
+
+            identification: cardholder_identification,
+
+            month: expiration_month,
+
+            year: expiration_year,
+          },
+        });
+
+        if (!token.result) return window.alert(token.error);
+
+        // Obtener código de seguridad y cuota
+
+        const security_code = document.querySelector("#security_code");
+
+        const installment = document.querySelector("#installments").value;
+
+        // Procesar el pago usando el intent token, el token de la tarjeta, el codigo de seguridad y la cuota elegida
+
+        const response = await window.MobbexJS.operation.process({
+          intentToken: "INTENT TOKEN",
+
+          source: token.data.token,
+
+          securityCode: security_code,
+
+          installment: installment,
+        });
+
+        if (!response.result) return window.alert(response.error);
+
+        return window.alert(response.data.status.text);
+      };
+    </script>
+  </body>
+</html>
